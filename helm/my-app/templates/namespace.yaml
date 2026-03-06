@@ -1,0 +1,14 @@
+# helm/my-app/templates/namespace.yaml
+
+{{- if.values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata: 
+  name: {{ .values.namespace.name }}
+  lables: 
+    app.kubernates.io/name: {{include "my-app.name" . }}
+    app.kubernates.io/instance: {{ .Release.Name}}
+    app.kubernates.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+

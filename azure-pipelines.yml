@@ -1,0 +1,98 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  imageRepository: 'my-app' #Name of your docker image in ACR
+  dockerRegisteryServiceConnection: 'myacr' #ACR Service Connection Name
+  aksServiceConnection: 'Azure Service Connection' #AKS cluster service connection Name
+  helmChartPath: 'helm/my-app' #Path to helm charts in repo
+  azureResoureGroup: 'demo'
+  kubernatesCluster: 'my-aks-clster'
+
+Stages:
+  - stage: Build
+    displayName: Build and Push docker Image
+    jobs:
+    - job: BuildJob
+      displayName: Build Container
+      steps:
+      - task: Docker@2
+        displayName: Build and Push Docker Image
+        inputs:
+          containerRegistry: '$(dockerRegisteryServiceConnection)'
+          repository: '$(imageRepository)'
+          command: 'BuildAndPush'
+          dockerfile: 'app/Dockerfile'
+          tags: | #Block Scalar (|)
+            $(Build.BuildId)
+            latest
+    
+      - task: HelmInstaller
+        displayName: Install Helm
+        inputs:
+          helmVersionToInstall: '3.11.0'
+
+  - stage: DeployToDev
+    displayName: Deploy to Dev
+    dependsOn: Build
+    condition: Succeeded()
+    jobs:
+    - deployment: DeployJob
+      displayName: Deploy with helm to AKS
+      environment: 'Dev-AKS'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - checkout: self
+              persistCredentials: true #ensures service connections remain available for later tasks.
+            - task: HelmInstaller@1
+              displayName: Install helm on Agent
+              inputs:
+                helmVersionToInstall: '3.11.0'
+
+            - task: HelmDeploy@0
+              displayName: Helm Upgrade/Install (Dev)
+              azureResourceGroup: '$(azureResoureGroup)'
+              kubernatesCluster: '$(kubernatesCluster)'
+              command: 'upgrade' # upgrades an existing release or installs if missing.
+              chartType: 'FilePath'
+              chartPath: '$(System.DefaultWorkingDirectory)/$(helmChartPath)' #Path to your Helm chart in the repo.
+              releaseName: 'my-app-dev'
+              arguments: '--install -f $(System.DefaultWorkingDirectory)/$(helmChartPath)/vaules.dev.yaml' # ensures install if release doesn’t exist, and applies values.dev.yaml for environment-specific configs.
+              overrideValues: 'image.tag=$(Build.BuildId)' #Forces the image tag to match the current build ID, so AKS always pulls the freshly built image.
+
+  - stage: DeployToQA
+    displayName: Deploy to QA
+    dependsOn: DeployToDev
+    condition: Succeeded()
+    jobs:
+    - deployment: DeployToQAJob
+      displayName: Deploy with helm to AKS
+      environment: 'QA-aks'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - checkout: self
+              persistCredentials: true
+            - task: HelmInstaller@1
+              displayName: Install helm on Agent
+              inputs:
+                helmVersionToInstall: '3.11.0'
+
+            - task: HelmDeploy@0  
+              displayName: Helm Upgrade/Install (QA)
+              inputs:
+                azureSubscription: '$(aksServiceConnection)' 
+                azureResoureGroup: '$(azureResoureGroup)'
+                kubernatesCluster: 'kubernatesCluster'
+                command: 'upgrate'
+                chartType: 'FilePath'
+                chartPath: '$(System.DefaultWorkingDirectory)/$(helmChartPath)'
+                releaseName: 'my-app-qa'
+                arguments: '--install -f $(System.DefaultWorkingDirectory)/$(helmChartPath)/values.qa.yaml'
+                overrideValues: 'image.tag=$(Build.BuildId)'
