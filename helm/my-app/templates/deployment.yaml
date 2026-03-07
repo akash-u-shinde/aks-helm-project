@@ -22,3 +22,24 @@ spec:
           ports:
             - containerPort: {{ .Values.container.port }}
           
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: ng-dep
+# spec:
+#   replicas: 6
+#   selector:
+#     matchLabels:
+#       env: dev
+#   template:
+#     metadata:
+#       name: ng-pod
+#       labels:
+#         env: dev
+#     spec:
+#       containers:
+#         - name: nginx
+#           image: nginx:latest
+#           ports:
+#             - containerPort: 80
+#               protocol: TCP
