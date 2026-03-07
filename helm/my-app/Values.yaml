@@ -1,0 +1,17 @@
+# Default values for the Helm chart.
+# These values can be overridden during deployment.
+
+replicaCount: 2
+
+image:
+  repository: myacrdemo123.azurecr.io/my-app ## Your default image repository
+  tag: "latest" # A default tag that will be overridden by the pipeline
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+namespace:
+  create: false
+  name: "default"

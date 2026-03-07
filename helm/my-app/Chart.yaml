@@ -1,0 +1,6 @@
+apiVersion: v2 #Helm chart specification
+name: my-app
+description: A Helm chart for simple web application
+type: application
+version: 0.1.0 #Helm chart package version
+appVersion: 1.0.0 #Application version deployed
